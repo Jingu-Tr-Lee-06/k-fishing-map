@@ -27,13 +27,9 @@ const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLa
 const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
 
-// 📍 [수정] 훨씬 더 안전해진 지도 이동 컴포넌트
 const ChangeView = ({ center, zoom }: { center: any, zoom: any }) => {
   const [useMap, setUseMap] = useState<any>(null);
-  useEffect(() => {
-    import("react-leaflet").then((mod) => setUseMap(() => mod.useMap));
-  }, []);
-
+  useEffect(() => { import("react-leaflet").then((mod) => setUseMap(() => mod.useMap)); }, []);
   if (!useMap) return null;
   return <MapMoveInternal useMap={useMap} center={center} zoom={zoom} />;
 };
@@ -41,15 +37,10 @@ const ChangeView = ({ center, zoom }: { center: any, zoom: any }) => {
 const MapMoveInternal = ({ useMap, center, zoom }: any) => {
   const map = useMap();
   useEffect(() => {
-    // 📍 map 객체와 내부 준비 상태(_loaded)를 모두 체크
     if (map && typeof map.flyTo === 'function') {
       const timer = setTimeout(() => {
-        try {
-          map.flyTo(center, zoom, { animate: true, duration: 1 });
-        } catch (e) {
-          console.warn("지도 이동 시도 중 에러 발생 (무시 가능):", e);
-        }
-      }, 100); // 0.1초 지연을 주어 레이아웃 계산 시간을 벌어줍니다.
+        try { map.flyTo(center, zoom, { animate: true, duration: 1 }); } catch (e) {}
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [center, zoom, map]);
@@ -58,9 +49,7 @@ const MapMoveInternal = ({ useMap, center, zoom }: any) => {
 
 const LocationMarker = ({ onLocationSelect }: { onLocationSelect: (latlng: any) => void }) => {
   const [useMapEvents, setUseMapEvents] = useState<any>(null);
-  useEffect(() => {
-    import("react-leaflet").then((mod) => setUseMapEvents(() => mod.useMapEvents));
-  }, []);
+  useEffect(() => { import("react-leaflet").then((mod) => setUseMapEvents(() => mod.useMapEvents)); }, []);
   if (!useMapEvents) return null;
   return <MapClickEvents useMapEvents={useMapEvents} onLocationSelect={onLocationSelect} />;
 };
@@ -83,10 +72,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => { setUser(currentUser); });
     import("leaflet").then((leaflet) => {
       const icon = leaflet.icon({
         iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -109,9 +95,7 @@ export default function Home() {
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (e) { alert("로그인 실패!"); }
+    try { await signInWithPopup(auth, provider); } catch (e) { alert("로그인 실패!"); }
   };
 
   const handleLogout = () => signOut(auth);
@@ -132,11 +116,7 @@ export default function Home() {
     if (!pointName) return;
     try {
       await addDoc(collection(db, "fishingPoints"), {
-        name: pointName, 
-        lat: selectedPos.lat, 
-        lng: selectedPos.lng, 
-        userId: user.uid,
-        createdAt: new Date()
+        name: pointName, lat: selectedPos.lat, lng: selectedPos.lng, userId: user.uid, createdAt: new Date()
       });
       alert("저장 성공!");
       setSelectedPos(null);
@@ -155,9 +135,12 @@ export default function Home() {
   };
 
   return (
-    <main className="flex w-full h-screen text-black bg-white overflow-hidden">
-      <aside className="w-80 h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl">
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+    // 📍 md:flex-row를 주어 데스크톱에선 가로, 모바일에선 세로(flex-col)로 배치
+    <main className="flex flex-col md:flex-row w-full h-screen text-black bg-white overflow-hidden">
+      
+      {/* 📍 사이드바: 모바일에선 하단, 데스크톱에선 왼쪽 고정 */}
+      <aside className="w-full md:w-80 h-[40vh] md:h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl order-2 md:order-1">
+        <div className="p-4 md:p-6 border-b border-slate-800 flex justify-between items-center">
           <h1 className="text-xl font-black italic text-blue-400 tracking-tighter">K-FISHING</h1>
           {user ? (
             <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">로그아웃</button>
@@ -167,23 +150,20 @@ export default function Home() {
         </div>
 
         {user && (
-          <div className="px-6 py-3 bg-slate-800/30 flex items-center gap-3 border-b border-slate-800">
-            <img src={user.photoURL} alt="profile" className="w-6 h-6 rounded-full border border-slate-600" />
-            <span className="text-xs font-bold text-slate-300">{user.displayName}님</span>
+          <div className="px-6 py-2 bg-slate-800/30 flex items-center gap-3 border-b border-slate-800">
+            <img src={user.photoURL} alt="profile" className="w-5 h-5 rounded-full" />
+            <span className="text-[11px] font-bold text-slate-300">{user.displayName}님</span>
           </div>
         )}
         
-        <div className="p-4 bg-slate-800/50 flex flex-wrap gap-1.5 border-b border-slate-800">
+        {/* 📍 지역 필터: 모바일에서도 보기 편하게 스크롤 가능하게 처리 */}
+        <div className="p-3 bg-slate-800/50 flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible gap-1.5 border-b border-slate-800 no-scrollbar">
           {CITIES.map((city) => (
             <button
               key={city.name}
-              onClick={() => {
-                setSelectedCity(city);
-                setMapCenter(city.center);
-                setMapZoom(city.zoom);
-              }}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${
-                selectedCity.name === city.name ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+              onClick={() => { setSelectedCity(city); setMapCenter(city.center); setMapZoom(city.zoom); }}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                selectedCity.name === city.name ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400"
               }`}
             >
               {city.name}
@@ -193,52 +173,34 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-4">
-            <p className="text-xs font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider">
+            <p className="text-[10px] font-bold text-slate-500 mb-3 flex justify-between uppercase">
               <span>{selectedCity.name} 포인트</span>
               <span>{filteredPoints.length}개</span>
             </p>
             <div className="flex flex-col gap-2">
-              {filteredPoints.length > 0 ? (
-                filteredPoints.map((p) => (
-                  <div key={p.id} className="relative group">
-                    <button
-                      onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); }}
-                      className="w-full text-left p-4 pr-12 rounded-xl bg-slate-800 hover:bg-blue-900/40 border border-slate-700 transition-all"
-                    >
-                      <div className="text-sm font-bold">{p.name}</div>
-                      <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-tighter">
-                        {p.userId === user?.uid ? "⭐ 내가 등록한 명당" : "낚시 포인트"}
-                      </div>
-                    </button>
-                    {p.userId === user?.uid && (
-                      <button 
-                        onClick={(e) => handleDelete(e, p.id)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-500 p-2 transition-colors"
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-10 text-slate-600 text-sm italic">포인트가 없습니다.</div>
-              )}
+              {filteredPoints.map((p) => (
+                <div key={p.id} className="relative group">
+                  <button
+                    onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); }}
+                    className="w-full text-left p-3 pr-10 rounded-xl bg-slate-800 border border-slate-700 transition-all"
+                  >
+                    <div className="text-sm font-bold truncate">{p.name}</div>
+                    <div className="text-[9px] text-slate-500 mt-0.5">{p.userId === user?.uid ? "⭐ 내가 등록함" : "낚시 포인트"}</div>
+                  </button>
+                  {p.userId === user?.uid && (
+                    <button onClick={(e) => handleDelete(e, p.id)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 p-2">🗑️</button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </aside>
 
-      <section className="flex-1 relative">
+      {/* 📍 지도 섹션: 모바일에선 위쪽(60vh), 데스크톱에선 나머지 전체 */}
+      <section className="flex-1 h-[60vh] md:h-full relative order-1 md:order-2">
         {mounted && L && (
-          <MapContainer 
-            center={mapCenter} 
-            zoom={mapZoom} 
-            minZoom={7} 
-            maxBounds={KOREA_BOUNDS} 
-            maxBoundsViscosity={1.0} 
-            style={{ width: "100%", height: "100%" }} 
-            zoomControl={false}
-          >
+          <MapContainer center={mapCenter} zoom={mapZoom} minZoom={7} maxBounds={KOREA_BOUNDS} maxBoundsViscosity={1.0} style={{ width: "100%", height: "100%" }} zoomControl={false}>
             <ChangeView center={mapCenter} zoom={mapZoom} />
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <LocationMarker onLocationSelect={(latlng) => setSelectedPos(latlng)} />
@@ -247,17 +209,15 @@ export default function Home() {
                 <Popup><div className="font-bold text-blue-600">{p.name}</div></Popup>
               </Marker>
             ))}
-            {selectedPos && <Marker position={selectedPos}><Popup>등록 대기 중...</Popup></Marker>}
+            {selectedPos && <Marker position={selectedPos}><Popup>등록 대기</Popup></Marker>}
           </MapContainer>
         )}
         
+        {/* 📍 저장 버튼: 모바일에서도 중앙 하단에 잘 보이게 유지 */}
         {selectedPos && (
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1000]">
-            <button 
-              onClick={handleSave} 
-              className="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-500 active:scale-95 transition-all flex items-center gap-2"
-            >
-              {user ? "📍 이 위치 저장" : "📍 이 위치 저장 (로그인 필요)"}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] md:w-auto">
+            <button onClick={handleSave} className="w-full md:w-auto bg-blue-600 text-white px-8 py-3.5 rounded-full font-bold shadow-2xl hover:bg-blue-500 transition-all">
+              {user ? "📍 이 위치 저장" : "🔒 로그인 후 저장"}
             </button>
           </div>
         )}
