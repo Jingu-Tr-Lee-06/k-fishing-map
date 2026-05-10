@@ -146,9 +146,9 @@ export default function Home() {
           <h1 className="text-xl font-black italic text-blue-400 tracking-tighter">K-FISHING</h1>
           <div className="flex gap-2 items-center">
             {user ? (
-              <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">OUT</button>
+              <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">로그아웃</button>
             ) : (
-              <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">LOGIN</button>
+              <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">로그인</button>
             )}
             {/* 모바일에서만 보이는 닫기 버튼 */}
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 text-xl">✕</button>
