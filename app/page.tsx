@@ -202,6 +202,33 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <div className="p-5 border-t border-slate-800 bg-slate-900/90 mt-auto">
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-[11px] font-black text-blue-400 tracking-wider">
+              JH's SW Lab
+            </h3>
+            <div className="flex flex-col">
+              <p className="text-[10px] text-slate-400 font-bold">
+                진구이선생 (이진호)
+              </p>
+              <a 
+                href="mailto:jingu.tr.lee@gmail.com" 
+                className="text-[9px] text-slate-500 hover:text-blue-300 transition-colors"
+              >
+                jingu.tr.lee@gmail.com
+              </a>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-800/50">
+              <p className="text-[9px] text-slate-600 leading-tight">
+                © 2026 K-FISHING. All rights reserved.
+              </p>
+              <p className="text-[8px] text-slate-700 mt-0.5 uppercase tracking-tighter">
+                Map data © OpenStreetMap contributors
+              </p>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* 📍 메인 섹션 (지도) */}
