@@ -68,6 +68,7 @@ export default function Home() {
   const [mapCenter, setMapCenter] = useState<any>(CITIES[0].center);
   const [mapZoom, setMapZoom] = useState(CITIES[0].zoom);
   const [user, setUser] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // 📍 사이드바 열림/닫힘 상태
   const auth = getAuth();
 
   useEffect(() => {
@@ -135,34 +136,38 @@ export default function Home() {
   };
 
   return (
-    // 📍 md:flex-row를 주어 데스크톱에선 가로, 모바일에선 세로(flex-col)로 배치
-    <main className="flex flex-col md:flex-row w-full h-screen text-black bg-white overflow-hidden">
+    <main className="flex w-full h-screen text-black bg-white overflow-hidden relative">
       
-      {/* 📍 사이드바: 모바일에선 하단, 데스크톱에선 왼쪽 고정 */}
-      <aside className="w-full md:w-80 h-[40vh] md:h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl order-2 md:order-1">
-        <div className="p-4 md:p-6 border-b border-slate-800 flex justify-between items-center">
+      {/* 📍 사이드바: isSidebarOpen 상태에 따라 좌측으로 숨김/노출 */}
+      <aside className={`fixed md:relative w-80 h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl transition-transform duration-300 ease-in-out ${
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:hidden"
+      }`}>
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
           <h1 className="text-xl font-black italic text-blue-400 tracking-tighter">K-FISHING</h1>
-          {user ? (
-            <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">로그아웃</button>
-          ) : (
-            <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">로그인</button>
-          )}
+          <div className="flex gap-2 items-center">
+            {user ? (
+              <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">OUT</button>
+            ) : (
+              <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">LOGIN</button>
+            )}
+            {/* 모바일에서만 보이는 닫기 버튼 */}
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 text-xl">✕</button>
+          </div>
         </div>
 
         {user && (
           <div className="px-6 py-2 bg-slate-800/30 flex items-center gap-3 border-b border-slate-800">
-            <img src={user.photoURL} alt="profile" className="w-5 h-5 rounded-full" />
-            <span className="text-[11px] font-bold text-slate-300">{user.displayName}님</span>
+            <img src={user.photoURL} alt="p" className="w-5 h-5 rounded-full" />
+            <span className="text-[11px] font-bold text-slate-300">{user.displayName}</span>
           </div>
         )}
         
-        {/* 📍 지역 필터: 모바일에서도 보기 편하게 스크롤 가능하게 처리 */}
-        <div className="p-3 bg-slate-800/50 flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible gap-1.5 border-b border-slate-800 no-scrollbar">
+        <div className="p-4 bg-slate-800/50 flex flex-wrap gap-1.5 border-b border-slate-800">
           {CITIES.map((city) => (
             <button
               key={city.name}
               onClick={() => { setSelectedCity(city); setMapCenter(city.center); setMapZoom(city.zoom); }}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
                 selectedCity.name === city.name ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400"
               }`}
             >
@@ -173,22 +178,24 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-4">
-            <p className="text-[10px] font-bold text-slate-500 mb-3 flex justify-between uppercase">
-              <span>{selectedCity.name} 포인트</span>
-              <span>{filteredPoints.length}개</span>
+            <p className="text-[10px] font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider">
+              <span>{selectedCity.name} POINTS</span>
+              <span>{filteredPoints.length}</span>
             </p>
             <div className="flex flex-col gap-2">
               {filteredPoints.map((p) => (
                 <div key={p.id} className="relative group">
                   <button
-                    onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); }}
-                    className="w-full text-left p-3 pr-10 rounded-xl bg-slate-800 border border-slate-700 transition-all"
+                    onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
+                    className="w-full text-left p-4 rounded-xl bg-slate-800 border border-slate-700 transition-all hover:bg-blue-900/40"
                   >
                     <div className="text-sm font-bold truncate">{p.name}</div>
-                    <div className="text-[9px] text-slate-500 mt-0.5">{p.userId === user?.uid ? "⭐ 내가 등록함" : "낚시 포인트"}</div>
+                    <div className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">
+                      {p.userId === user?.uid ? "⭐ MINE" : "POINT"}
+                    </div>
                   </button>
                   {p.userId === user?.uid && (
-                    <button onClick={(e) => handleDelete(e, p.id)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 p-2">🗑️</button>
+                    <button onClick={(e) => handleDelete(e, p.id)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-500 p-2">🗑️</button>
                   )}
                 </div>
               ))}
@@ -197,8 +204,20 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* 📍 지도 섹션: 모바일에선 위쪽(60vh), 데스크톱에선 나머지 전체 */}
-      <section className="flex-1 h-[60vh] md:h-full relative order-1 md:order-2">
+      {/* 📍 메인 섹션 (지도) */}
+      <section className="flex-1 relative h-full">
+        {/* 📍 햄버거 메뉴 버튼 (사이드바가 닫혀있을 때만 노출) */}
+        {!isSidebarOpen && (
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute top-4 left-4 z-[1002] bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 flex flex-col gap-1 hover:bg-slate-800 transition-all"
+          >
+            <div className="w-5 h-0.5 bg-blue-400"></div>
+            <div className="w-5 h-0.5 bg-blue-400"></div>
+            <div className="w-5 h-0.5 bg-blue-400"></div>
+          </button>
+        )}
+
         {mounted && L && (
           <MapContainer center={mapCenter} zoom={mapZoom} minZoom={7} maxBounds={KOREA_BOUNDS} maxBoundsViscosity={1.0} style={{ width: "100%", height: "100%" }} zoomControl={false}>
             <ChangeView center={mapCenter} zoom={mapZoom} />
@@ -209,15 +228,14 @@ export default function Home() {
                 <Popup><div className="font-bold text-blue-600">{p.name}</div></Popup>
               </Marker>
             ))}
-            {selectedPos && <Marker position={selectedPos}><Popup>등록 대기</Popup></Marker>}
+            {selectedPos && <Marker position={selectedPos}><Popup>대기 중...</Popup></Marker>}
           </MapContainer>
         )}
         
-        {/* 📍 저장 버튼: 모바일에서도 중앙 하단에 잘 보이게 유지 */}
         {selectedPos && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] md:w-auto">
-            <button onClick={handleSave} className="w-full md:w-auto bg-blue-600 text-white px-8 py-3.5 rounded-full font-bold shadow-2xl hover:bg-blue-500 transition-all">
-              {user ? "📍 이 위치 저장" : "🔒 로그인 후 저장"}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1000] w-[80%] md:w-auto">
+            <button onClick={handleSave} className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-500 active:scale-95 transition-all">
+              {user ? "📍 이 위치 저장" : "📍 이 위치 저장 (로그인 필요)"}
             </button>
           </div>
         )}
