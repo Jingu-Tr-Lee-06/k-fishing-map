@@ -68,7 +68,11 @@ export default function Home() {
   const [mapCenter, setMapCenter] = useState<any>(CITIES[0].center);
   const [mapZoom, setMapZoom] = useState(CITIES[0].zoom);
   const [user, setUser] = useState<any>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // 📍 사이드바 열림/닫힘 상태
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  const [isInputModalOpen, setIsInputModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: "", species: "", note: "" });
+
   const auth = getAuth();
 
   useEffect(() => {
@@ -112,15 +116,21 @@ export default function Home() {
 
   const handleSave = async () => {
     if (!user) return alert("로그인이 필요합니다!");
-    if (!selectedPos) return;
-    const pointName = prompt("포인트 이름을 입력하세요");
-    if (!pointName) return;
+    if (!formData.name) return alert("포인트 이름을 입력해주세요!");
+
     try {
       await addDoc(collection(db, "fishingPoints"), {
-        name: pointName, lat: selectedPos.lat, lng: selectedPos.lng, userId: user.uid, createdAt: new Date()
+        ...formData,
+        lat: selectedPos.lat,
+        lng: selectedPos.lng,
+        userId: user.uid,
+        userName: user.displayName,
+        createdAt: new Date()
       });
-      alert("저장 성공!");
+      alert("포인트가 등록되었습니다!");
+      setIsInputModalOpen(false);
       setSelectedPos(null);
+      setFormData({ name: "", species: "", note: "" });
       fetchPoints();
     } catch (e) { alert("저장 실패!"); }
   };
@@ -132,116 +142,73 @@ export default function Home() {
       await deleteDoc(doc(db, "fishingPoints", pointId));
       alert("삭제되었습니다.");
       fetchPoints();
-    } catch (e) { alert("삭제 권한이 없거나 실패했습니다."); }
+    } catch (e) { alert("실패했습니다."); }
   };
 
   return (
-    <main className="flex w-full h-screen text-black bg-white overflow-hidden relative">
+    <main className="flex w-full h-screen text-black bg-white overflow-hidden relative font-sans">
       
-      {/* 📍 사이드바: isSidebarOpen 상태에 따라 좌측으로 숨김/노출 */}
-      <aside className={`fixed md:relative w-80 h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl transition-transform duration-300 ease-in-out ${
+      {/* 사이드바 */}
+      <aside className={`fixed md:relative w-80 h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl transition-transform duration-300 ${
         isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:hidden"
       }`}>
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-          <h1 className="text-xl font-black italic text-blue-400 tracking-tighter">K-FISHING</h1>
-          <div className="flex gap-2 items-center">
-            {user ? (
-              <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">로그아웃</button>
-            ) : (
-              <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">로그인</button>
-            )}
-            {/* 모바일에서만 보이는 닫기 버튼 */}
+          <h1 className="text-xl font-black italic text-blue-400">K-FISHING</h1>
+          <div className="flex gap-2">
+            {user ? <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">OUT</button> : <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">LOGIN</button>}
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 text-xl">✕</button>
           </div>
         </div>
 
         {user && (
-          <div className="px-6 py-2 bg-slate-800/30 flex items-center gap-3 border-b border-slate-800">
-            <img src={user.photoURL} alt="p" className="w-5 h-5 rounded-full" />
-            <span className="text-[11px] font-bold text-slate-300">{user.displayName}</span>
+          <div className="px-6 py-2 bg-slate-800/30 flex items-center gap-3 border-b border-slate-800 text-[11px] font-bold text-slate-300">
+            <img src={user.photoURL} alt="p" className="w-5 h-5 rounded-full" /> {user.displayName}
           </div>
         )}
         
         <div className="p-4 bg-slate-800/50 flex flex-wrap gap-1.5 border-b border-slate-800">
           {CITIES.map((city) => (
-            <button
-              key={city.name}
-              onClick={() => { setSelectedCity(city); setMapCenter(city.center); setMapZoom(city.zoom); }}
-              className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                selectedCity.name === city.name ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400"
-              }`}
-            >
-              {city.name}
-            </button>
+            <button key={city.name} onClick={() => { setSelectedCity(city); setMapCenter(city.center); setMapZoom(city.zoom); }} className={`px-2.5 py-1.5 rounded text-[10px] font-bold transition-all ${selectedCity.name === city.name ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400"}`}>{city.name}</button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="p-4">
-            <p className="text-[10px] font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider">
-              <span>{selectedCity.name} POINTS</span>
-              <span>{filteredPoints.length}</span>
-            </p>
-            <div className="flex flex-col gap-2">
-              {filteredPoints.map((p) => (
-                <div key={p.id} className="relative group">
-                  <button
-                    onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
-                    className="w-full text-left p-4 rounded-xl bg-slate-800 border border-slate-700 transition-all hover:bg-blue-900/40"
-                  >
-                    <div className="text-sm font-bold truncate">{p.name}</div>
-                    <div className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">
-                      {p.userId === user?.uid ? "⭐ MINE" : "POINT"}
-                    </div>
-                  </button>
-                  {p.userId === user?.uid && (
-                    <button onClick={(e) => handleDelete(e, p.id)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-500 p-2">🗑️</button>
-                  )}
-                </div>
-              ))}
-            </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+          <p className="text-[10px] font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider"><span>{selectedCity.name} POINTS</span><span>{filteredPoints.length}</span></p>
+          <div className="flex flex-col gap-2">
+            {filteredPoints.map((p) => (
+              <div key={p.id} className="relative group">
+                <button onClick={() => { setMapCenter([p.lat, p.lng]); setMapZoom(15); if(window.innerWidth < 768) setIsSidebarOpen(false); }} className="w-full text-left p-4 rounded-xl bg-slate-800 border border-slate-700 hover:bg-blue-900/40 transition-all">
+                  <div className="text-sm font-bold truncate">{p.name}</div>
+                  <div className="text-[10px] text-blue-400 mt-1 font-medium">{p.species || "어종 미확인"}</div>
+                  {p.note && <div className="text-[10px] text-slate-500 mt-1 line-clamp-1">{p.note}</div>}
+                </button>
+                {p.userId === user?.uid && <button onClick={(e) => handleDelete(e, p.id)} className="absolute right-4 top-4 text-slate-600 hover:text-red-500 transition-colors">🗑️</button>}
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* 푸터 영역 (JH's SW Lab) */}
         <div className="p-5 border-t border-slate-800 bg-slate-900/90 mt-auto">
           <div className="flex flex-col gap-1.5">
-            <h3 className="text-[11px] font-black text-blue-400 tracking-wider">
-              JH's SW Lab
-            </h3>
+            <h3 className="text-[11px] font-black text-blue-400 tracking-wider">JH's SW Lab</h3>
             <div className="flex flex-col">
-              <p className="text-[10px] text-slate-400 font-bold">
-                진구이선생 (이진호)
-              </p>
-              <a 
-                href="mailto:jingu.tr.lee@gmail.com" 
-                className="text-[9px] text-slate-500 hover:text-blue-300 transition-colors"
-              >
-                jingu.tr.lee@gmail.com
-              </a>
+              <p className="text-[10px] text-slate-400 font-bold">진구이선생 (이진호)</p>
+              <a href="mailto:jingu.tr.lee@gmail.com" className="text-[9px] text-slate-500 hover:text-blue-300 transition-colors">jingu.tr.lee@gmail.com</a>
             </div>
             <div className="mt-2 pt-2 border-t border-slate-800/50">
-              <p className="text-[9px] text-slate-600 leading-tight">
-                © 2026 K-FISHING. All rights reserved.
-              </p>
-              <p className="text-[8px] text-slate-700 mt-0.5 uppercase tracking-tighter">
-                Map data © OpenStreetMap contributors
-              </p>
+              <p className="text-[9px] text-slate-600 leading-tight">© 2026 K-FISHING. All rights reserved.</p>
+              <p className="text-[8px] text-slate-700 mt-0.5 uppercase tracking-tighter">Map data © OpenStreetMap contributors</p>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* 📍 메인 섹션 (지도) */}
+      {/* 지도 섹션 */}
       <section className="flex-1 relative h-full">
-        {/* 📍 햄버거 메뉴 버튼 (사이드바가 닫혀있을 때만 노출) */}
         {!isSidebarOpen && (
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="absolute top-4 left-4 z-[1002] bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 flex flex-col gap-1 hover:bg-slate-800 transition-all"
-          >
-            <div className="w-5 h-0.5 bg-blue-400"></div>
-            <div className="w-5 h-0.5 bg-blue-400"></div>
-            <div className="w-5 h-0.5 bg-blue-400"></div>
+          <button onClick={() => setIsSidebarOpen(true)} className="absolute top-4 left-4 z-[1002] bg-slate-900 p-3 rounded-lg flex flex-col gap-1 shadow-2xl border border-slate-700">
+            <div className="w-5 h-0.5 bg-blue-400"></div><div className="w-5 h-0.5 bg-blue-400"></div><div className="w-5 h-0.5 bg-blue-400"></div>
           </button>
         )}
 
@@ -250,20 +217,58 @@ export default function Home() {
             <ChangeView center={mapCenter} zoom={mapZoom} />
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <LocationMarker onLocationSelect={(latlng) => setSelectedPos(latlng)} />
+            
             {points.map((p) => (
               <Marker key={p.id} position={[p.lat, p.lng]}>
-                <Popup><div className="font-bold text-blue-600">{p.name}</div></Popup>
+                <Popup>
+                  <div className="p-1 min-w-[150px]">
+                    <div className="font-bold text-blue-600 text-base">{p.name}</div>
+                    <div className="text-xs text-slate-600 mt-1">🐟 {p.species || "정보 없음"}</div>
+                    {p.note && <div className="text-[11px] bg-slate-50 p-2 mt-2 rounded border-l-2 border-blue-400 whitespace-pre-wrap text-black">{p.note}</div>}
+                    <div className="text-[9px] text-slate-400 mt-2 text-right border-t pt-1">By {p.userName}</div>
+                  </div>
+                </Popup>
               </Marker>
             ))}
-            {selectedPos && <Marker position={selectedPos}><Popup>대기 중...</Popup></Marker>}
+
+            {selectedPos && <Marker position={selectedPos}><Popup>새 포인트 등록 중...</Popup></Marker>}
           </MapContainer>
         )}
         
-        {selectedPos && (
+        {selectedPos && !isInputModalOpen && (
           <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1000] w-[80%] md:w-auto">
-            <button onClick={handleSave} className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl hover:bg-blue-500 active:scale-95 transition-all">
-              {user ? "📍 이 위치 저장" : "📍 이 위치 저장 (로그인 필요)"}
+            <button onClick={() => setIsInputModalOpen(true)} className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-2xl animate-bounce">
+              📍 선택한 위치에 정보 기록하기
             </button>
+          </div>
+        )}
+
+        {isInputModalOpen && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="bg-blue-600 p-4 text-white font-bold flex justify-between items-center">
+                <span>새로운 낚시 명당 기록</span>
+                <button onClick={() => setIsInputModalOpen(false)} className="hover:rotate-90 transition-transform text-xl">✕</button>
+              </div>
+              <div className="p-6 flex flex-col gap-4 text-black">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1 block">포인트 이름 *</label>
+                  <input type="text" placeholder="예: 금강 합수부 수중여" className="w-full border-b-2 border-slate-200 p-2 focus:border-blue-500 outline-none transition-all" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1 block">주요 어종</label>
+                  <input type="text" placeholder="예: 배스, 쏘가리, 꺽지 등" className="w-full border-b-2 border-slate-200 p-2 focus:border-blue-500 outline-none transition-all" value={formData.species} onChange={(e) => setFormData({...formData, species: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1 block">특징 및 메모</label>
+                  <textarea placeholder="진입로나 밑걸림 정도를 적어주세요." className="w-full border-2 border-slate-100 p-3 rounded-lg h-24 focus:border-blue-500 outline-none transition-all text-sm" value={formData.note} onChange={(e) => setFormData({...formData, note: e.target.value})} />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => setIsInputModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold">취소</button>
+                  <button onClick={handleSave} className="flex-[2] py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200">기록 완료</button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </section>
