@@ -73,6 +73,10 @@ export default function Home() {
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", species: "", note: "" });
 
+  // 📍 날씨 관련 상태 추가
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+
   const auth = getAuth();
 
   useEffect(() => {
@@ -89,6 +93,24 @@ export default function Home() {
     fetchPoints();
     return () => unsubscribe();
   }, []);
+
+  // 📍 실시간 날씨 호출 함수
+  const fetchWeather = async (lat: number, lng: number) => {
+    setIsWeatherLoading(true);
+    setWeatherData(null);
+    const API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${API_KEY}&units=metric&lang=kr`
+      );
+      const data = await response.json();
+      setWeatherData(data);
+    } catch (e) {
+      console.error("날씨 정보 호출 실패:", e);
+    } finally {
+      setIsWeatherLoading(false);
+    }
+  };
 
   const fetchPoints = async () => {
     try {
@@ -117,7 +139,6 @@ export default function Home() {
   const handleSave = async () => {
     if (!user) return alert("로그인이 필요합니다!");
     if (!formData.name) return alert("포인트 이름을 입력해주세요!");
-
     try {
       await addDoc(collection(db, "fishingPoints"), {
         ...formData,
@@ -188,7 +209,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 푸터 영역 (JH's SW Lab) */}
         <div className="p-5 border-t border-slate-800 bg-slate-900/90 mt-auto">
           <div className="flex flex-col gap-1.5">
             <h3 className="text-[11px] font-black text-blue-400 tracking-wider">JH's SW Lab</h3>
@@ -219,13 +239,41 @@ export default function Home() {
             <LocationMarker onLocationSelect={(latlng) => setSelectedPos(latlng)} />
             
             {points.map((p) => (
-              <Marker key={p.id} position={[p.lat, p.lng]}>
+              <Marker 
+                key={p.id} 
+                position={[p.lat, p.lng]}
+                eventHandlers={{
+                  click: () => fetchWeather(p.lat, p.lng),
+                }}
+              >
                 <Popup>
-                  <div className="p-1 min-w-[150px]">
-                    <div className="font-bold text-blue-600 text-base">{p.name}</div>
-                    <div className="text-xs text-slate-600 mt-1">🐟 {p.species || "정보 없음"}</div>
-                    {p.note && <div className="text-[11px] bg-slate-50 p-2 mt-2 rounded border-l-2 border-blue-400 whitespace-pre-wrap text-black">{p.note}</div>}
-                    <div className="text-[9px] text-slate-400 mt-2 text-right border-t pt-1">By {p.userName}</div>
+                  <div className="p-1 min-w-[180px] text-black">
+                    <div className="font-bold text-blue-600 text-base border-b pb-1 mb-2">{p.name}</div>
+                    
+                    {/* 📍 날씨 정보 영역 */}
+                    <div className="bg-slate-50 p-2 rounded-lg mb-2">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">CURRENT WEATHER</p>
+                      {isWeatherLoading ? (
+                        <p className="text-[11px] animate-pulse">불러오는 중...</p>
+                      ) : weatherData ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <img src={`https://openweathermap.org/img/wn/${weatherData.weather[0].icon}.png`} className="w-8 h-8" alt="w" />
+                            <span className="text-sm font-bold">{Math.round(weatherData.main.temp)}°C</span>
+                          </div>
+                          <div className="text-right text-[10px] text-slate-600 font-medium">
+                            <p>{weatherData.weather[0].description}</p>
+                            <p>💨 {weatherData.wind.speed}m/s</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400">마커를 클릭해 날씨 확인</p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-slate-600 font-bold mt-1">🐟 {p.species || "어종 정보 없음"}</div>
+                    {p.note && <div className="text-[11px] bg-blue-50 p-2 mt-2 rounded border-l-2 border-blue-400 whitespace-pre-wrap">{p.note}</div>}
+                    <div className="text-[9px] text-slate-400 mt-2 text-right border-t pt-1 uppercase">By {p.userName}</div>
                   </div>
                 </Popup>
               </Marker>
