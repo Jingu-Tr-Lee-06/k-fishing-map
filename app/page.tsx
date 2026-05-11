@@ -73,9 +73,9 @@ export default function Home() {
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", species: "", note: "" });
 
-  // 📍 날씨 관련 상태 추가
   const [weatherData, setWeatherData] = useState<any>(null);
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(""); // 📍 검색어 상태 추가
 
   const auth = getAuth();
 
@@ -94,7 +94,6 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  // 📍 실시간 날씨 호출 함수
   const fetchWeather = async (lat: number, lng: number) => {
     setIsWeatherLoading(true);
     setWeatherData(null);
@@ -127,14 +126,19 @@ export default function Home() {
 
   const handleLogout = () => signOut(auth);
 
+  // 📍 필터링 로직 업데이트 (지역 + 검색어)
   const filteredPoints = useMemo(() => {
-    let list = points.filter(p => {
+    return points.filter(p => {
       const [[minLat, minLng], [maxLat, maxLng]] = selectedCity.bounds;
-      return p.lat >= minLat && p.lat <= maxLat && p.lng >= minLng && p.lng <= maxLng;
-    });
-    list.sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [points, selectedCity]);
+      const isInCity = p.lat >= minLat && p.lat <= maxLat && p.lng >= minLng && p.lng <= maxLng;
+      
+      const matchesSearch = 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (p.species && p.species.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return isInCity && matchesSearch;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [points, selectedCity, searchTerm]);
 
   const handleSave = async () => {
     if (!user) return alert("로그인이 필요합니다!");
@@ -169,14 +173,13 @@ export default function Home() {
   return (
     <main className="flex w-full h-screen text-black bg-white overflow-hidden relative font-sans">
       
-      {/* 사이드바 */}
       <aside className={`fixed md:relative w-80 h-full bg-slate-900 text-white flex flex-col z-[1001] shadow-2xl transition-transform duration-300 ${
         isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:hidden"
       }`}>
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
           <h1 className="text-xl font-black italic text-blue-400">K-FISHING</h1>
           <div className="flex gap-2">
-            {user ? <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">OUT</button> : <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">LOGIN</button>}
+            {user ? <button onClick={handleLogout} className="text-[10px] bg-slate-700 px-2 py-1 rounded">로그아웃</button> : <button onClick={handleLogin} className="text-[10px] bg-blue-600 px-2 py-1 rounded">로그인</button>}
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 text-xl">✕</button>
           </div>
         </div>
@@ -186,6 +189,23 @@ export default function Home() {
             <img src={user.photoURL} alt="p" className="w-5 h-5 rounded-full" /> {user.displayName}
           </div>
         )}
+
+        {/* 📍 검색바 추가 */}
+        <div className="p-4 bg-slate-800/20 border-b border-slate-800">
+          <div className="relative">
+            <input 
+              type="text"
+              placeholder="포인트 이름 또는 어종 검색..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 pl-10 text-xs focus:border-blue-500 outline-none transition-all text-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">🔍</span>
+            {searchTerm && (
+              <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">✕</button>
+            )}
+          </div>
+        </div>
         
         <div className="p-4 bg-slate-800/50 flex flex-wrap gap-1.5 border-b border-slate-800">
           {CITIES.map((city) => (
@@ -194,7 +214,17 @@ export default function Home() {
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-          <p className="text-[10px] font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider"><span>{selectedCity.name} POINTS</span><span>{filteredPoints.length}</span></p>
+          <p className="text-[10px] font-bold text-slate-500 mb-4 flex justify-between uppercase tracking-wider">
+            <span>{searchTerm ? `'${searchTerm}' 검색` : `${selectedCity.name} POINTS`}</span>
+            <span>{filteredPoints.length}</span>
+          </p>
+
+          {filteredPoints.length === 0 && (
+            <div className="text-center py-10">
+              <p className="text-slate-500 text-xs font-medium">검색 결과가 없습니다. 🎣</p>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             {filteredPoints.map((p) => (
               <div key={p.id} className="relative group">
@@ -224,7 +254,6 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* 지도 섹션 */}
       <section className="flex-1 relative h-full">
         {!isSidebarOpen && (
           <button onClick={() => setIsSidebarOpen(true)} className="absolute top-4 left-4 z-[1002] bg-slate-900 p-3 rounded-lg flex flex-col gap-1 shadow-2xl border border-slate-700">
@@ -239,20 +268,12 @@ export default function Home() {
             <LocationMarker onLocationSelect={(latlng) => setSelectedPos(latlng)} />
             
             {points.map((p) => (
-              <Marker 
-                key={p.id} 
-                position={[p.lat, p.lng]}
-                eventHandlers={{
-                  click: () => fetchWeather(p.lat, p.lng),
-                }}
-              >
+              <Marker key={p.id} position={[p.lat, p.lng]} eventHandlers={{ click: () => fetchWeather(p.lat, p.lng) }}>
                 <Popup>
                   <div className="p-1 min-w-[180px] text-black">
                     <div className="font-bold text-blue-600 text-base border-b pb-1 mb-2">{p.name}</div>
-                    
-                    {/* 📍 날씨 정보 영역 */}
                     <div className="bg-slate-50 p-2 rounded-lg mb-2">
-                      <p className="text-[10px] font-bold text-slate-400 mb-1">CURRENT WEATHER</p>
+                      <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase">Current Weather</p>
                       {isWeatherLoading ? (
                         <p className="text-[11px] animate-pulse">불러오는 중...</p>
                       ) : weatherData ? (
@@ -267,13 +288,12 @@ export default function Home() {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-[10px] text-slate-400">마커를 클릭해 날씨 확인</p>
+                        <p className="text-[10px] text-slate-400 italic">클릭하여 날씨 확인</p>
                       )}
                     </div>
-
                     <div className="text-xs text-slate-600 font-bold mt-1">🐟 {p.species || "어종 정보 없음"}</div>
                     {p.note && <div className="text-[11px] bg-blue-50 p-2 mt-2 rounded border-l-2 border-blue-400 whitespace-pre-wrap">{p.note}</div>}
-                    <div className="text-[9px] text-slate-400 mt-2 text-right border-t pt-1 uppercase">By {p.userName}</div>
+                    <div className="text-[9px] text-slate-400 mt-2 text-right border-t pt-1 uppercase tracking-tighter">By {p.userName}</div>
                   </div>
                 </Popup>
               </Marker>
